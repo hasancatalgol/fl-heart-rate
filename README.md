@@ -41,12 +41,12 @@ Why these shapes? Z/S functions give **soft shoulders** at the band edges; trian
 
 ## Rule base
 
-|              | **Symptoms**        |                |                |
+|              | **Symptoms**                                          |
 |:------------:|:-------------------:|:--------------:|:--------------:|
-| **HR ↓**     | **Low (0–3)**       | **Medium (3–7)** | **High (≥7)**  |
-| **Low**      | 🟠 Medium *(M1)*    | 🔴 High *(H1)* | 🔴 High *(H2)* |
-| **Normal**   | 🟢 Low *(L1)*       | 🟠 Medium *(M3)* | 🔴 High *(H5)* |
-| **High**     | 🟠 Medium *(M2)*    | 🔴 High *(H3)* | 🔴 High *(H4)* |
+| **HR**     | Low (0–3)       | Medium (3–7) | High (≥7)  |
+| Low      | 🟠 Medium *(M1)*    | 🔴 High *(H1)* | 🔴 High *(H2)* |
+| Normal   | 🟢 Low *(L1)*       | 🟠 Medium *(M3)* | 🔴 High *(H5)* |
+| High     | 🟠 Medium *(M2)*    | 🔴 High *(H3)* | 🔴 High *(H4)* |
 
 **Baseline (M4):** when HR is **extremely low or high**, add a small **Medium** risk even if symptoms are low (conservative safety net).
 
