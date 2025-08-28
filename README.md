@@ -38,26 +38,39 @@ Why these shapes? Z/S functions give **soft shoulders** at the band edges; trian
 
 ---
 
-## Rule base (plain English)
-The rules mirror common sense and are slightly conservative around extremes.
+## Rule base — pretty & compact
 
-**High risk**  
-- If **HR low** AND **Symptoms medium**.  
-- If **HR low** AND **Symptoms high**.  
-- If **HR high** AND **Symptoms medium**.  
-- If **HR high** AND **Symptoms high**.  
-- If **HR normal** AND **Symptoms high**.
+### Color key
+![High](https://img.shields.io/badge/Risk-High-%23e11d48?style=flat) ![Medium](https://img.shields.io/badge/Risk-Medium-%23f59e0b?style=flat) ![Low](https://img.shields.io/badge/Risk-Low-%2310b981?style=flat)
 
-**Medium risk**  
-- If **HR low** AND **Symptoms low**.  
-- If **HR high** AND **Symptoms low**.  
-- If **HR normal** AND **Symptoms medium**.  
-- **Baseline**: extremes carry some risk (a half-weight rule that adds a little medium risk when HR is very low or very high, even if symptoms are low).
+### A. Matrix view (what each combo means)
 
-**Low risk**  
-- If **HR normal** AND **Symptoms low**.
+| **HR \ Symptoms** | **Low (0–3)** | **Medium (3–7)** | **High (≥7)** |
+|---|---|---|---|
+| **Low**    | ![M](https://img.shields.io/badge/Medium-%23f59e0b?style=flat) <sub>M1</sub> | ![H](https://img.shields.io/badge/High-%23e11d48?style=flat) <sub>H1</sub> | ![H](https://img.shields.io/badge/High-%23e11d48?style=flat) <sub>H2</sub> |
+| **Normal** | ![L](https://img.shields.io/badge/Low-%2310b981?style=flat) <sub>L1</sub> | ![M](https://img.shields.io/badge/Medium-%23f59e0b?style=flat) <sub>M3</sub> | ![H](https://img.shields.io/badge/High-%23e11d48?style=flat) <sub>H5</sub> |
+| **High**   | ![M](https://img.shields.io/badge/Medium-%23f59e0b?style=flat) <sub>M2</sub> | ![H](https://img.shields.io/badge/High-%23e11d48?style=flat) <sub>H3</sub> | ![H](https://img.shields.io/badge/High-%23e11d48?style=flat) <sub>H4</sub> |
 
----
+**Baseline (M4)**: ![M](https://img.shields.io/badge/Medium-%23f59e0b?style=flat)  
+*Extremely* low or high HR adds a **gentle medium** risk even if symptoms are low (a conservative safety net).
+
+### B. Human‑readable cards
+
+> #### 🔴 High risk (H1–H5)
+> - H1: HR **low** & Symptoms **medium**  
+> - H2: HR **low** & Symptoms **high**  
+> - H3: HR **high** & Symptoms **medium**  
+> - H4: HR **high** & Symptoms **high**  
+> - H5: HR **normal** & Symptoms **high** *(symptoms dominate)*
+
+> #### 🟠 Medium risk (M1–M4)
+> - M1: HR **low** & Symptoms **low** *(monitor)*  
+> - M2: HR **high** & Symptoms **low**  
+> - M3: HR **normal** & Symptoms **medium**  
+> - M4: **Extremely low or high HR** → adds a small medium risk *(half‑weight baseline)*
+
+> #### 🟢 Low risk (L1)
+> - L1: HR **normal** & Symptoms **low**
 
 ## Mamdani inference — how the engine works
 This repository uses **Mamdani** (a.k.a. Max–Min) inference with **centroid** defuzzification.
