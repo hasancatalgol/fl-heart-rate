@@ -41,12 +41,42 @@ Why these shapes? Z/S functions give **soft shoulders** at the band edges; trian
 
 ## Rule base
 
-|              | **Symptoms**                                          |
-|:------------:|:-------------------:|:--------------:|:--------------:|
-| **HR**     | Low (0–3)       | Medium (3–7) | High (≥7)  |
-| Low      | 🟠 Medium *(M1)*    | 🔴 High *(H1)* | 🔴 High *(H2)* |
-| Normal   | 🟢 Low *(L1)*       | 🟠 Medium *(M3)* | 🔴 High *(H5)* |
-| High     | 🟠 Medium *(M2)*    | 🔴 High *(H3)* | 🔴 High *(H4)* |
+<table>
+  <thead>
+    <tr>
+      <th style="text-align:center;"></th>
+      <th style="text-align:center;" colspan="3"><strong>Symptoms</strong></th>
+    </tr>
+    <tr>
+      <th style="text-align:center;"><strong>HR</strong></th>
+      <th style="text-align:center;">Low (0–3)</th>
+      <th style="text-align:center;">Medium (3–7)</th>
+      <th style="text-align:center;">High (≥7)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th style="text-align:center;">Low</th>
+      <td style="text-align:center;">🟠 Medium <em>(M1)</em></td>
+      <td style="text-align:center;">🔴 High <em>(H1)</em></td>
+      <td style="text-align:center;">🔴 High <em>(H2)</em></td>
+    </tr>
+    <tr>
+      <th style="text-align:center;">Normal</th>
+      <td style="text-align:center;">🟢 Low <em>(L1)</em></td>
+      <td style="text-align:center;">🟠 Medium <em>(M3)</em></td>
+      <td style="text-align:center;">🔴 High <em>(H5)</em></td>
+    </tr>
+    <tr>
+      <th style="text-align:center;">High</th>
+      <td style="text-align:center;">🟠 Medium <em>(M2)</em></td>
+      <td style="text-align:center;">🔴 High <em>(H3)</em></td>
+      <td style="text-align:center;">🔴 High <em>(H4)</em></td>
+    </tr>
+  </tbody>
+</table>
+
+<sub><strong>Baseline (M4)</strong>: when HR is <em>extremely</em> low or high, add a small <strong>Medium</strong> risk even if symptoms are low (conservative safety net).</sub>
 
 **Baseline (M4):** when HR is **extremely low or high**, add a small **Medium** risk even if symptoms are low (conservative safety net).
 
