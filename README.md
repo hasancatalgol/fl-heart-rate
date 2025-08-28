@@ -76,8 +76,6 @@ Why these shapes? Z/S functions give **soft shoulders** at the band edges; trian
   </tbody>
 </table>
 
-<sub><strong>Baseline (M4)</strong>: when HR is <em>extremely</em> low or high, add a small <strong>Medium</strong> risk even if symptoms are low (conservative safety net).</sub>
-
 **Baseline (M4):** when HR is **extremely low or high**, add a small **Medium** risk even if symptoms are low (conservative safety net).
 
 
