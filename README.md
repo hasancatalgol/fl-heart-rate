@@ -4,7 +4,8 @@
 Classical logic says a heart rate is either “normal” or “not.” Fuzzy logic says it can be **0.7 normal** and **0.2 high** at the same time.  
 That nuance flows through **IF–THEN rules**, producing a **smooth** decision that reflects reality better than rigid thresholds.
 
-![Components of a fuzzy logic controller](https://www.researchgate.net/profile/Alireza-Alfi/publication/264416989/figure/fig2/AS:668908105256964@1536491528286/Components-of-a-fuzzy-logic-controller.png)
+![Components of a fuzzy logic controller.](docs/Components-of-a-fuzzy-logic-controller.png)
+
 
 1. **Inputs**: read numbers from sensors.  
 2. **Fuzzification**: convert each number to degrees (0–1) for terms like *Low*, *Normal*, *High*.  
@@ -40,11 +41,12 @@ Why these shapes? Z/S functions give **soft shoulders** at the band edges; trian
 
 ## Rule base
 
-| **HR \ Symptoms** | **Low (0–3)** | **Medium (3–7)** | **High (≥7)** |
-|---|---|---|---|
-| **Low**    | 🟠 Medium *(M1)* | 🔴 High *(H1)* | 🔴 High *(H2)* |
-| **Normal** | 🟢 Low *(L1)*    | 🟠 Medium *(M3)* | 🔴 High *(H5)* |
-| **High**   | 🟠 Medium *(M2)* | 🔴 High *(H3)* | 🔴 High *(H4)* |
+|              | **Symptoms**        |                |                |
+|:------------:|:-------------------:|:--------------:|:--------------:|
+| **HR ↓**     | **Low (0–3)**       | **Medium (3–7)** | **High (≥7)**  |
+| **Low**      | 🟠 Medium *(M1)*    | 🔴 High *(H1)* | 🔴 High *(H2)* |
+| **Normal**   | 🟢 Low *(L1)*       | 🟠 Medium *(M3)* | 🔴 High *(H5)* |
+| **High**     | 🟠 Medium *(M2)*    | 🔴 High *(H3)* | 🔴 High *(H4)* |
 
 **Baseline (M4):** when HR is **extremely low or high**, add a small **Medium** risk even if symptoms are low (conservative safety net).
 
