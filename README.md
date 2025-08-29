@@ -92,7 +92,7 @@ This repository uses **Mamdani** (a.k.a. Max–Min) inference with **centroid** 
 ![One Mamdani Example](docs/age_adjusted_mamdani_example.png)
 
 Notes:
-- With overlapping membership functions and the **centroid** method, the crisp mapping is **continuous** but can have **kinks** where different rules dominate.  
+- With overlapping membership functions and the **centroid** method, the crisp mapping is **continuous** but can have **kinks** where different rules dominate. **“Kinks”** means your Mamdani surface = places where the output is still continuous but the slope abruptly changes (continuous-but-not-smooth).
 - True discontinuities more often appear with MOM/SOM/LOM defuzzification or with non-overlapping/gapped sets.
 
 ---
