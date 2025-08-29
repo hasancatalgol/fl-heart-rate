@@ -1,4 +1,3 @@
-
 import os
 import numpy as np
 import skfuzzy as fuzz
@@ -9,6 +8,7 @@ if not os.environ.get("DISPLAY") and os.name != "nt":
     matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt  # noqa: E402
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 
 # -------------------------------
@@ -57,6 +57,7 @@ sym_high = fuzz.smf(sym, 6, 8)
 risk_low = fuzz.trimf(risk, [0, 0, 4])
 risk_med = fuzz.trimf(risk, [2, 5, 8])
 risk_high = fuzz.trimf(risk, [6, 10, 10])
+
 
 # 3) Plot (legends outside-right; suptitle above — no overlap)
 def plot_memberships():
@@ -176,11 +177,8 @@ def crisp_risk(hr_val, sym_val, show=False):
 
 
 # ============================================================
-# Mamdani risk surface (centroid defuzz) — append-only
+# Mamdani risk surface (centroid defuzz)
 # ============================================================
-from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
-
-
 def mamdani_risk_surface(hr_pts=151, sym_pts=101, hr_min=30, hr_max=200, sym_min=0, sym_max=10,
                          save_path="docs/mamdani_risk_surface.png"):
     """
@@ -211,6 +209,7 @@ def mamdani_risk_surface(hr_pts=151, sym_pts=101, hr_min=30, hr_max=200, sym_min
     plt.savefig(save_path, dpi=160, bbox_inches="tight", pad_inches=0.05)
     print(f"Surface saved to {save_path}")
     plt.show()
+
 
 # ============================================================
 # Sugeno (zero-order) — crisp inference + surface + weight plot
@@ -381,11 +380,188 @@ def sugeno_weights_plot(hr_val, sym_val, and_op="prod", z_vals=SUGENO_Z,
     return crisp
 
 
+# ============================================================
+# Sugeno (first-order / TSK-1) — crisp inference + surface + weights
+# ============================================================
+
+# Coefficients for linear consequents per rule:
+# Each rule outputs: z = a0 + a1*hrn + a2*symn, where hrn∈[0,1], symn∈[0,1]
+# (These are illustrative and tuned to keep z mostly within 0..10; final result is clipped.)
+DEFAULT_TSK1_COEFFS = {
+    "H1": (7.0, 0.0, 1.8),  # HR Low & Sym Med  -> High-ish; driven by symptoms
+    "H2": (7.2, 0.0, 2.0),  # HR Low & Sym High -> Higher; strongly by symptoms
+    "H3": (7.0, 0.8, 1.8),  # HR High & Sym Med -> High; HR contributes too
+    "H4": (7.5, 0.8, 1.7),  # HR High & Sym High-> Very high; both contribute
+    "H5": (7.2, 0.5, 1.8),  # HR Normal & Sym High -> High; mostly symptoms
+    "M1": (4.0, 0.0, 0.8),  # HR Low & Sym Low  -> Medium-ish low
+    "M2": (4.4, 0.8, 0.6),  # HR High & Sym Low -> Medium-ish; HR contributes
+    "M3": (4.8, 0.3, 1.2),  # HR Normal & Sym Med -> Mid; symptoms dominate
+    "M4": (4.0, 1.0, 0.0),  # Baseline extremes (depends on HR only)
+    "L1": (2.5, 0.2, -0.8), # HR Normal & Sym Low -> Low; higher symptoms lower this
+}
+
+
+def sugeno1_infer(hr_val, sym_val, and_op="prod", coeffs=None, verbose=False):
+    """
+    First-order (linear) Sugeno inference using SAME antecedents & rule structure.
+    Returns (crisp, weights_info). Linear consequents use normalized inputs:
+      hrn  = clamp((HR - HR_LO) / (HR_HI - HR_LO), 0..1)
+      symn = clamp(Symptoms / 10, 0..1)
+    """
+    # Memberships
+    μ_hr_low   = grade(hr, hr_low,   hr_val)
+    μ_hr_norm  = grade(hr, hr_normal, hr_val)
+    μ_hr_high  = grade(hr, hr_high,  hr_val)
+    μ_sym_low  = grade(sym, sym_low,  sym_val)
+    μ_sym_med  = grade(sym, sym_med,  sym_val)
+    μ_sym_high = grade(sym, sym_high, sym_val)
+
+    # AND t-norm
+    def AND(a, b): return (a * b) if and_op == "prod" else min(a, b)
+
+    # Rule weights (mirror Mamdani rule base)
+    labels = [
+        "H1: HR Low ∧ Sym Med → High",
+        "H2: HR Low ∧ Sym High → High",
+        "H3: HR High ∧ Sym Med → High",
+        "H4: HR High ∧ Sym High → High",
+        "H5: HR Normal ∧ Sym High → High",
+        "M1: HR Low ∧ Sym Low → Med",
+        "M2: HR High ∧ Sym Low → Med",
+        "M3: HR Normal ∧ Sym Med → Med",
+        "M4: 0.5·max(HR Low, HR High) → Med",
+        "L1: HR Normal ∧ Sym Low → Low",
+    ]
+    w_hi_1 = AND(μ_hr_low,  μ_sym_med)
+    w_hi_2 = AND(μ_hr_low,  μ_sym_high)
+    w_hi_3 = AND(μ_hr_high, μ_sym_med)
+    w_hi_4 = AND(μ_hr_high, μ_sym_high)
+    w_hi_5 = AND(μ_hr_norm, μ_sym_high)
+    w_med_1 = AND(μ_hr_low,  μ_sym_low)
+    w_med_2 = AND(μ_hr_high, μ_sym_low)
+    w_med_3 = AND(μ_hr_norm, μ_sym_med)
+    w_med_4 = 0.5 * max(μ_hr_low, μ_hr_high)  # baseline partial rule
+    w_low_1 = AND(μ_hr_norm, μ_sym_low)
+    w = np.array([w_hi_1, w_hi_2, w_hi_3, w_hi_4, w_hi_5,
+                  w_med_1, w_med_2, w_med_3, w_med_4,
+                  w_low_1], dtype=float)
+
+    # Normalized inputs for linear consequents
+    hrn  = float(np.clip((hr_val - HR_LO) / max(1e-9, (HR_HI - HR_LO)), 0.0, 1.0))
+    symn = float(np.clip(sym_val / 10.0, 0.0, 1.0))
+
+    # Coefficients (a0, a1, a2) per rule
+    C = (DEFAULT_TSK1_COEFFS if coeffs is None else coeffs)
+    keys = ["H1","H2","H3","H4","H5","M1","M2","M3","M4","L1"]
+    a = np.array([C[k] for k in keys], dtype=float)  # shape (10,3)
+
+    # Linear outputs per rule: z_i = a0 + a1*hrn + a2*symn
+    z = a[:, 0] + a[:, 1] * hrn + a[:, 2] * symn
+
+    contrib = w * z
+    denom = float(np.sum(w))
+    crisp = float(np.sum(contrib) / denom) if denom > 1e-12 else 0.0
+    crisp = float(np.clip(crisp, 0.0, 10.0))
+
+    info = []
+    for i, k in enumerate(keys):
+        info.append({
+            "rule": labels[i],
+            "weight": float(w[i]),
+            "a": {"a0": float(a[i,0]), "a1_hrn": float(a[i,1]), "a2_symn": float(a[i,2])},
+            "z": float(z[i]),
+            "contrib": float(contrib[i]),
+        })
+
+    if verbose:
+        print(f"[Sugeno-1 {and_op}] HR={hr_val:.1f}, Symptoms={sym_val:.1f} "
+              f"(hrn={hrn:.2f}, symn={symn:.2f}) -> Risk={crisp:.2f}")
+        top = sorted(info, key=lambda d: d["weight"], reverse=True)[:5]
+        for d in top:
+            a0, a1, a2 = d["a"]["a0"], d["a"]["a1_hrn"], d["a"]["a2_symn"]
+            print(f"  {d['rule']}: w={d['weight']:.3f}, z={d['z']:.2f} "
+                  f"(a0+a1*hrn+a2*symn = {a0:.1f}+{a1:.1f}*{hrn:.2f}+{a2:.1f}*{symn:.2f}), w*z={d['contrib']:.2f}")
+
+    return crisp, info
+
+
+def sugeno1_risk_surface(hr_pts=151, sym_pts=101,
+                         hr_min=30, hr_max=200, sym_min=0, sym_max=10,
+                         and_op="prod", coeffs=None,
+                         save_path="docs/sugeno1_risk_surface.png"):
+    """3D surface for first-order Sugeno."""
+    H = np.linspace(hr_min, hr_max, hr_pts)
+    S = np.linspace(sym_min, sym_max, sym_pts)
+    Z = np.empty((sym_pts, hr_pts), dtype=float)
+
+    for i, s in enumerate(S):
+        for j, h in enumerate(H):
+            Z[i, j], _ = sugeno1_infer(h, s, and_op=and_op, coeffs=coeffs, verbose=False)
+
+    HH, SS = np.meshgrid(H, S)
+    fig = plt.figure(figsize=(12, 9))
+    ax = fig.add_subplot(111, projection='3d')
+    surf = ax.plot_surface(HH, SS, Z, cmap='viridis', linewidth=0, antialiased=True, alpha=0.95)
+    ax.set_xlabel("Heart Rate (bpm)")
+    ax.set_ylabel("Symptoms (0–10)")
+    ax.set_zlabel("Sugeno-1 Risk")
+    ax.set_zlim(0, 10)
+    ax.set_title(f"Sugeno Risk Surface (first-order, AND='{and_op}')")
+    cbar = fig.colorbar(surf, shrink=0.6, pad=0.1)
+    cbar.set_label("Risk")
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    plt.savefig(save_path, dpi=160, bbox_inches="tight", pad_inches=0.05)
+    print(f"Surface saved to {save_path}")
+    plt.show()
+
+
+def sugeno1_weights_plot(hr_val, sym_val, and_op="prod", coeffs=None, save_path=None):
+    """
+    Horizontal bar chart of rule weights (first-order). Annotates each with z and w·z,
+    and shows the linear form used (a0 + a1*hrn + a2*symn).
+    """
+    crisp, info = sugeno1_infer(hr_val, sym_val, and_op=and_op, coeffs=coeffs, verbose=False)
+
+    labels   = [d["rule"] for d in info]
+    weights  = np.array([d["weight"] for d in info], dtype=float)
+    contribs = np.array([d["contrib"] for d in info], dtype=float)
+    zs       = np.array([d["z"] for d in info], dtype=float)
+    forms    = [f"a0={d['a']['a0']:.1f}, a1={d['a']['a1_hrn']:.1f}, a2={d['a']['a2_symn']:.1f}" for d in info]
+
+    order = np.argsort(weights)[::-1]
+    fig = plt.figure(figsize=(12.5, 7.5), constrained_layout=True)
+    ax = fig.add_subplot(111)
+    ax.barh(np.arange(len(order)), weights[order])
+    ax.set_yticks(np.arange(len(order)))
+    ax.set_yticklabels([labels[i] for i in order])
+    ax.invert_yaxis()
+    ax.set_xlabel("Rule firing strength (weight)")
+    ax.set_title(
+        f"Sugeno-1 Rule Weights (AND='{and_op}')\n"
+        f"HR={hr_val}, Symptoms={sym_val} — Crisp Risk = {crisp:.2f}"
+    )
+
+    for k, i in enumerate(order):
+        ax.text(weights[i] + 0.01, k,
+                f"z={zs[i]:.2f}, w·z={contribs[i]:.2f}  ({forms[i]})",
+                va="center")
+
+    if save_path is None:
+        os.makedirs("docs", exist_ok=True)
+        save_path = f"docs/sugeno1_rule_weights_hr{int(round(hr_val))}_sym{int(round(sym_val))}.png"
+
+    plt.savefig(save_path, dpi=150, bbox_inches="tight", pad_inches=0.05)
+    print(f"Weights diagram saved to {save_path}")
+    plt.show()
+
+    return crisp
+
+
 # =========================
 # Main
 # =========================
 def main():
-    
+
     # Membership plots
     plot_memberships()
 
@@ -403,15 +579,20 @@ def main():
     # --- Sugeno (zero-order) ---
     for h, s in cases:
         su, _ = sugeno_infer(h, s, and_op="prod")
-        print(f"[Sugeno]  HR={h:>3} bpm, Symptoms={s} -> Risk={su:.2f}")
+        print(f"[Sugeno-0] HR={h:>3} bpm, Symptoms={s} -> Risk={su:.2f}")
 
-    # Sugeno surface
+    # Sugeno (zero-order) surface + weights
     sugeno_risk_surface(and_op="prod")
-
-    # Show rule weights for a specific case (and save the chart)
     _ = sugeno_weights_plot(40, 7, and_op="prod")
+
+    # --- Sugeno (first-order / linear) ---
+    for h, s in cases:
+        su1, _ = sugeno1_infer(h, s, and_op="prod")
+        print(f"[Sugeno-1] HR={h:>3} bpm, Symptoms={s} -> Risk={su1:.2f}")
+
+    sugeno1_risk_surface(and_op="prod")
+    _ = sugeno1_weights_plot(40, 7, and_op="prod")
 
 
 if __name__ == "__main__":
     main()
-
