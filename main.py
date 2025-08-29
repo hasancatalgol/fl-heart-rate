@@ -212,22 +212,206 @@ def mamdani_risk_surface(hr_pts=151, sym_pts=101, hr_min=30, hr_max=200, sym_min
     print(f"Surface saved to {save_path}")
     plt.show()
 
+# ============================================================
+# Sugeno (zero-order) — crisp inference + surface + weight plot
+# ============================================================
 
+# Representative constants for the three consequents (tune as you like)
+SUGENO_Z = {"LOW": 2.0, "MED": 5.0, "HIGH": 8.5}
+
+
+def sugeno_infer(hr_val, sym_val, and_op="prod", z_vals=SUGENO_Z, verbose=False):
+    """
+    Zero-order Sugeno inference using the SAME antecedents and rule structure
+    as the Mamdani engine. Returns (crisp, weights_info).
+
+    - and_op: 'prod' (product t-norm, default) or 'min'
+    - z_vals: dict with keys 'LOW', 'MED', 'HIGH' giving rule constants
+
+    weights_info: list of dicts: {"rule","weight","z","contrib"}
+    """
+    # Antecedent degrees
+    μ_hr_low  = grade(hr, hr_low,   hr_val)
+    μ_hr_norm = grade(hr, hr_normal, hr_val)
+    μ_hr_high = grade(hr, hr_high,  hr_val)
+
+    μ_sym_low  = grade(sym, sym_low,  sym_val)
+    μ_sym_med  = grade(sym, sym_med,  sym_val)
+    μ_sym_high = grade(sym, sym_high, sym_val)
+
+    # t-norm for AND
+    def AND(a, b):
+        return (a * b) if and_op == "prod" else min(a, b)
+
+    # ---- Rule weights (mirror Mamdani rules) ----
+    labels = [
+        "H1: HR Low ∧ Sym Med → High",
+        "H2: HR Low ∧ Sym High → High",
+        "H3: HR High ∧ Sym Med → High",
+        "H4: HR High ∧ Sym High → High",
+        "H5: HR Normal ∧ Sym High → High",
+        "M1: HR Low ∧ Sym Low → Med",
+        "M2: HR High ∧ Sym Low → Med",
+        "M3: HR Normal ∧ Sym Med → Med",
+        "M4: 0.5·max(HR Low, HR High) → Med",
+        "L1: HR Normal ∧ Sym Low → Low",
+    ]
+
+    w_hi_1 = AND(μ_hr_low,  μ_sym_med)
+    w_hi_2 = AND(μ_hr_low,  μ_sym_high)
+    w_hi_3 = AND(μ_hr_high, μ_sym_med)
+    w_hi_4 = AND(μ_hr_high, μ_sym_high)
+    w_hi_5 = AND(μ_hr_norm, μ_sym_high)
+
+    w_med_1 = AND(μ_hr_low,  μ_sym_low)
+    w_med_2 = AND(μ_hr_high, μ_sym_low)
+    w_med_3 = AND(μ_hr_norm, μ_sym_med)
+    w_med_4 = 0.5 * max(μ_hr_low, μ_hr_high)   # baseline partial rule
+
+    w_low_1 = AND(μ_hr_norm, μ_sym_low)
+
+    w = np.array([
+        w_hi_1, w_hi_2, w_hi_3, w_hi_4, w_hi_5,
+        w_med_1, w_med_2, w_med_3, w_med_4,
+        w_low_1
+    ], dtype=float)
+
+    # Consequent constants per rule (zero-order)
+    z = np.array([
+        z_vals["HIGH"], z_vals["HIGH"], z_vals["HIGH"], z_vals["HIGH"], z_vals["HIGH"],
+        z_vals["MED"],  z_vals["MED"],  z_vals["MED"],  z_vals["MED"],
+        z_vals["LOW"]
+    ], dtype=float)
+
+    contrib = w * z
+    denom = np.sum(w)
+    crisp = float(np.sum(contrib) / denom) if denom > 1e-12 else 0.0
+    crisp = float(np.clip(crisp, 0.0, 10.0))
+
+    weights_info = [
+        {"rule": labels[i], "weight": float(w[i]), "z": float(z[i]), "contrib": float(contrib[i])}
+        for i in range(len(labels))
+    ]
+
+    if verbose:
+        print(f"[Sugeno {and_op}] HR={hr_val:.1f}, Symptoms={sym_val:.1f} -> Risk={crisp:.2f}")
+        for d in sorted(weights_info, key=lambda d: d["weight"], reverse=True):
+            print(f"  {d['rule']}: w={d['weight']:.3f}, z={d['z']:.1f}, w*z={d['contrib']:.3f}")
+
+    return crisp, weights_info
+
+
+def sugeno_risk_surface(hr_pts=151, sym_pts=101,
+                        hr_min=30, hr_max=200, sym_min=0, sym_max=10,
+                        and_op="prod",
+                        z_vals=SUGENO_Z,
+                        save_path="docs/sugeno_risk_surface.png"):
+    """
+    Evaluate crisp risk over an HR×Symptoms grid using sugeno_infer()
+    and plot a 3D surface.
+    """
+    H = np.linspace(hr_min, hr_max, hr_pts)
+    S = np.linspace(sym_min, sym_max, sym_pts)
+    Z = np.empty((sym_pts, hr_pts), dtype=float)
+
+    for i, s in enumerate(S):
+        for j, h in enumerate(H):
+            Z[i, j], _ = sugeno_infer(h, s, and_op=and_op, z_vals=z_vals, verbose=False)
+
+    HH, SS = np.meshgrid(H, S)
+    fig = plt.figure(figsize=(12, 9))
+    ax = fig.add_subplot(111, projection='3d')
+    surf = ax.plot_surface(HH, SS, Z, cmap='viridis', linewidth=0, antialiased=True, alpha=0.95)
+    ax.set_xlabel("Heart Rate (bpm)")
+    ax.set_ylabel("Symptoms (0–10)")
+    ax.set_zlabel("Sugeno Risk")
+    ax.set_zlim(0, 10)
+    ax.set_title(f"Sugeno Risk Surface (zero-order, AND='{and_op}')")
+    cbar = fig.colorbar(surf, shrink=0.6, pad=0.1)
+    cbar.set_label("Risk")
+
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    plt.savefig(save_path, dpi=160, bbox_inches="tight", pad_inches=0.05)
+    print(f"Surface saved to {save_path}")
+    plt.show()
+
+
+def sugeno_weights_plot(hr_val, sym_val, and_op="prod", z_vals=SUGENO_Z,
+                        save_path=None):
+    """
+    Plot a horizontal bar chart of rule firing strengths (weights)
+    for a single input (hr_val, sym_val). Also annotates each bar with z and w*z.
+    Returns the crisp Sugeno output.
+    """
+    crisp, info = sugeno_infer(hr_val, sym_val, and_op=and_op, z_vals=z_vals, verbose=False)
+
+    labels   = [d["rule"] for d in info]
+    weights  = np.array([d["weight"] for d in info], dtype=float)
+    contribs = np.array([d["contrib"] for d in info], dtype=float)
+    z_used   = np.array([d["z"] for d in info], dtype=float)
+
+    order = np.argsort(weights)[::-1]  # show strongest rules on top
+
+    fig = plt.figure(figsize=(11, 7), constrained_layout=True)
+    ax = fig.add_subplot(111)
+    ax.barh(np.arange(len(order)), weights[order])
+    ax.set_yticks(np.arange(len(order)))
+    ax.set_yticklabels([labels[i] for i in order])
+    ax.invert_yaxis()
+    ax.set_xlabel("Rule firing strength (weight)")
+    ax.set_title(
+        f"Sugeno Rule Weights (AND='{and_op}')\n"
+        f"HR={hr_val}, Symptoms={sym_val} — Crisp Risk = {crisp:.2f}"
+    )
+
+    # Annotate each bar with z and w*z
+    for k, i in enumerate(order):
+        ax.text(weights[i] + 0.01, k,
+                f"z={z_used[i]:.1f}, w·z={contribs[i]:.2f}",
+                va="center")
+
+    if save_path is None:
+        os.makedirs("docs", exist_ok=True)
+        save_path = f"docs/sugeno_rule_weights_hr{int(round(hr_val))}_sym{int(round(sym_val))}.png"
+
+    plt.savefig(save_path, dpi=150, bbox_inches="tight", pad_inches=0.05)
+    print(f"Weights diagram saved to {save_path}")
+    plt.show()
+
+    return crisp
+
+
+# =========================
+# Main
+# =========================
 def main():
-    # Generate the membership function plots
+    
+    # Membership plots
     plot_memberships()
 
-    # Quick sanity checks
+    # Quick sanity checks (Mamdani)
     cases = [(40, 2), (40, 7), (75, 1), (110, 2), (110, 7)]
     for h, s in cases:
-        print(f"HR={h:>3} bpm, Symptoms={s} -> Risk={crisp_risk(h, s):.2f}")
+        print(f"[Mamdani] HR={h:>3} bpm, Symptoms={s} -> Risk={crisp_risk(h, s):.2f}")
 
-    # Example visualization
+    # Single Mamdani visualization
     _ = crisp_risk(40, 7, show=True)
 
-    # Generate the surface with reasonable resolution
+    # Mamdani surface
     mamdani_risk_surface()
+
+    # --- Sugeno (zero-order) ---
+    for h, s in cases:
+        su, _ = sugeno_infer(h, s, and_op="prod")
+        print(f"[Sugeno]  HR={h:>3} bpm, Symptoms={s} -> Risk={su:.2f}")
+
+    # Sugeno surface
+    sugeno_risk_surface(and_op="prod")
+
+    # Show rule weights for a specific case (and save the chart)
+    _ = sugeno_weights_plot(40, 7, and_op="prod")
 
 
 if __name__ == "__main__":
     main()
+

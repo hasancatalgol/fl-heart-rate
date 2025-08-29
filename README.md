@@ -86,10 +86,13 @@ This repository uses **Mamdani** (a.k.a. Max–Min) inference with **centroid** 
 2. **Rule evaluation**: combine antecedents with a **t-norm**; here **AND = min**, **OR = max**.  
 3. **Implication**: each rule **clips** its consequent set by the rule’s firing strength (**min**).  
 4. **Aggregation**: take the **max** across all clipped consequents to get one fuzzy output curve.  
-5. **Defuzzification**: use method **Centroid (a.k.a. center-of-area, COA)**. of that aggregated curve to produce the crisp risk. There are many other defuzzification methods such as **MOM(mean of maxima)**, **SOM/LOM(smallest/largest of maxima)**, **bisector—splits area in half.** [Check this link for all methods.](#https://en.wikipedia.org/wiki/Defuzzification)
+5. **Defuzzification**: use method **Centroid (a.k.a. center-of-area, COA)**. of that aggregated curve to produce the crisp risk. There are many other defuzzification methods such as **MOM(mean of maxima)**, **SOM/LOM(smallest/largest of maxima)**, **bisector—splits area in half.** 
+
+[Check this link for all methods.](https://en.wikipedia.org/wiki/Defuzzification)
 
 **Figure — One Mamdani pass (aggregated output + centroid)**  
-![One Mamdani Example](docs/age_adjusted_mamdani_example.png)
+![One Mamdani Example](docs/age_adjusted_mamdani_example.png),
+
 
 Notes:
 - With overlapping membership functions and the **centroid** method, the crisp mapping is **continuous** but can have **kinks** where different rules dominate. **“Kinks”** means your Mamdani surface = places where the output is still continuous but the slope abruptly changes (continuous-but-not-smooth).
@@ -107,6 +110,58 @@ How to read it:
 - **Ridge** as symptoms move to **medium** → “normal & medium → medium risk”.  
 - **Wide high plateau** once **Symptoms high** (≥7) → many **→ high** rules fire strongly.  
 - **Side ledges** for **very low or very high HR** even with few symptoms → baseline “extremes carry some risk” rule.
+
+---
+
+## Sugeno (Takagi–Sugeno–Kang) — why & how we use it
+A Sugeno system makes each rule output a **number**, then blends those numbers with a **weighted average**.  
+Perfect when different symptoms should carry **different importance** or when you want parameters that can be **learned**.
+
+### Two flavors
+- **Zero-order (constant)**: each rule returns a fixed number (e.g., 2, 5, 8.5).  
+- **First-order (linear)**: each rule returns a small linear function of inputs (e.g., `risk = a0 + a1·syncope + a2·chest_pain + …`).  
+  This is where **symptom importance** lives (the coefficients).
+
+### How it contrasts with Mamdani
+| Aspect | **Mamdani** | **Sugeno** |
+|---|---|---|
+| Rule output | Fuzzy set (Low/Med/High) | **Number** (constant or linear) |
+| Combine rules | Max of clipped fuzzy sets | **Weighted average** of numbers |
+| Final crisp value | **Defuzzify** (e.g., centroid) | **Already crisp** (no defuzz) |
+| Smoothness | Piecewise-smooth; has **kinks** | **Very smooth**; few kinks/plateaus |
+| Personalization | Harder to tune from data | **Easy to learn** weights/coeffs (ANFIS) |
+| Interpretability | Very human-readable rules | Clear math; coefficients carry meaning |
+
+### 📊 Figure — Rule influence at a single point
+*(Example: HR = 40, Symptoms = 7)*
+
+- **What you see:** which rules matter most (bar = firing strength/weight).  
+- **Annotations:** `z` (rule’s output value) and `w·z` (that rule’s contribution).  
+- **Crisp risk:** title shows final Sugeno result = **weighted average** of all rule outputs.  
+- **Why it’s useful:** reveals whether the decision is driven by, say, *“HR Low & Symptoms High → High”* vs *“Normal & Medium”*—making **symptom importance and rule impact transparent**.
+
+![Sugeno rule weights](docs/sugeno_rule_weights_hr40_sym7.png)
+
+---
+
+### 🌊 Figure — Sugeno Risk Surface (zero-order)
+
+- **Smoother** map than Mamdani: no defuzzification; just a weighted average of rule outputs.  
+- **Tuning symptom impact:**  
+  - *Zero-order:* choose the constants per rule (e.g., 2/5/8.5) to set target risk levels.  
+  - *First-order:* give **red-flag symptoms** bigger coefficients in `risk = a0 + Σ a_i·symptom_i (+ a_HR·HR)`.  
+- **What to check:**  
+  - High risk appears **where it should** (e.g., red flags or HR extremes).  
+  - Transitions between Low/Med/High feel **gradual and realistic**.
+
+![Sugeno Risk Surface](docs/sugeno_risk_surface.png)
+
+---
+
+### 🧭 Practical tips
+- Start **zero-order** to match your Mamdani levels; then move to **first-order** to weight individual symptoms.  
+- Keep a few **“red-flag” rules** (e.g., syncope at rest) with higher targets or coefficients.  
+- Validate with **spot checks** (e.g., 75/1 → low, 40/7 → high, 110/2 → medium-ish) and with contour/heatmaps for readability.
 
 ---
 
