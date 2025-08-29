@@ -86,7 +86,7 @@ This repository uses **Mamdani** (a.k.a. Max–Min) inference with **centroid** 
 2. **Rule evaluation**: combine antecedents with a **t-norm**; here **AND = min**, **OR = max**.  
 3. **Implication**: each rule **clips** its consequent set by the rule’s firing strength (**min**).  
 4. **Aggregation**: take the **max** across all clipped consequents to get one fuzzy output curve.  
-5. **Defuzzification**: use method **Centroid (a.k.a. center-of-area, COA)**. of that aggregated curve to produce the crisp risk. There are many other defuzzification methods such as **MOM(mean of maxima)**, **SOM/LOM(smallest/largest of maxima)**, **bisector—splits area in half.**
+5. **Defuzzification**: use method **Centroid (a.k.a. center-of-area, COA)**. of that aggregated curve to produce the crisp risk. There are many other defuzzification methods such as **MOM(mean of maxima)**, **SOM/LOM(smallest/largest of maxima)**, **bisector—splits area in half.** [Check this link for all methods.](#https://en.wikipedia.org/wiki/Defuzzification)
 
 **Figure — One Mamdani pass (aggregated output + centroid)**  
 ![One Mamdani Example](docs/age_adjusted_mamdani_example.png)
